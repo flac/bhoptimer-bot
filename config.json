@@ -1,0 +1,21 @@
+{
+    "token" :           "",
+    "sj_api_key":       "",
+    "prefix":           "",   
+
+    "server_ip":        "",
+    "server_port":      "", 
+    "rcon_password":    "",
+    "mapcycle":         "",
+    "styles_config":    "",
+    "maps_folder":      "",
+
+    "db_ip":            "",
+    "db_user":          "",
+    "db_pass":          "",
+    "db_database":      "",
+
+    "admin_ids":         [""],
+    "thumbnail":        ""
+
+}
