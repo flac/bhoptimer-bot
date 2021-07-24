@@ -288,6 +288,12 @@ async def wr_cooldown(ctx, error):
     if isinstance(error, commands.CommandOnCooldown):
         msg = "This command is on cooldown, please try again in {:.2f}s.".format(error.retry_after)
         await ctx.send(msg)
+
+@downloadmap.error
+async def downloadmap_cooldown(ctx, error):
+    if isinstance(error, commands.CommandOnCooldown):
+        msg = "This command is on cooldown, please try again in {:.2f}s.".format(error.retry_after)
+        await ctx.send(msg)    
 """
 
 
