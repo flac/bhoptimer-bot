@@ -138,19 +138,17 @@ async def rcon(ctx, *args):
     if str(user.id) in ADMIN_IDS:
         with a2s.ServerQuerier((IP, PORT)) as server:
             command = valve.rcon.execute((IP, PORT), RCON_PW, " ".join(args[:]))
-            embed = discord.Embed(colour=discord.Colour(0xcc9900), timestamp=datetime.utcnow())
+            embed = discord.Embed(colour=discord.Colour(0xcc9900), timestamp=datetime.utcnow(), description=f"```{command}```")
             embed.set_author(name="RCON")
             embed.set_thumbnail(url=THUMBNAIL)
-            embed.add_field(name="Response:", value="⬇")
             embed.set_footer(text="{server_name}".format(**server.info()))
-            await ctx.send(embed=embed)
 
             #send response as txt if over discord 2k chars limit
             try:
                 if command == "":
                     await ctx.send("```No response.```")
                 else:
-                    await ctx.send(f"```{command}```")
+                    await ctx.send(embed=embed)
             except HTTPException:
                 with open("response.txt", "w") as resp:
                     resp.write(command)
