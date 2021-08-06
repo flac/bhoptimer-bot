@@ -281,9 +281,14 @@ async def downloadmap(ctx, arg):
                         pass
 
                     else:
-                        for file in compressedFiles:
-                            #have to specify full path to overwrite existing
-                            shutil.move(f"{MAPS_FOLDER}/{file}", f"{FASTDL_FOLDER}/{file}")
+                        try:
+                            for file in compressedFiles:
+                                #have to specify full path to overwrite existing
+                                shutil.move(f"{MAPS_FOLDER}/{file}", f"{FASTDL_FOLDER}/{file}")
+                                
+                        #weird error even though all maps get moved in a mappack        
+                        except FileNotFoundError:
+                            pass
                 
                 embed.description = f"Successfully added **{gbName}**."
                 await msg.edit(embed=embed) 
