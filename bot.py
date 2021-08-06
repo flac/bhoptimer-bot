@@ -1,7 +1,6 @@
 import discord
 from discord.errors import HTTPException
 from discord.ext import commands, tasks
-from requests.models import HTTPError
 import valve.source.a2s as a2s
 import valve.rcon
 import json
@@ -13,6 +12,8 @@ import aiohttp
 import aiofiles
 from hurry.filesize import size
 import patoolib
+import shutil
+import bz2
 
 with open("config.json", "r") as config:
     cfg = json.load(config)
@@ -30,6 +31,12 @@ MAPCYCLE = cfg["mapcycle"]
 STYLES_CFG = cfg["styles_config"]
 MAPS_FOLDER = cfg["maps_folder"]
 
+#fastdl related
+FTP_IP = cfg["ftp_ip"]
+FTP_USER = cfg["ftp_user"]
+FTP_PASS = cfg["ftp_pass"]
+FASTDL_FOLDER = cfg["fastdl_folder"]
+
 #database related
 DB_IP = cfg["db_ip"]
 DB_USER = cfg["db_user"]
@@ -39,6 +46,7 @@ DB_DB = cfg["db_database"]
 #discord related
 ADMIN_IDS = cfg["admin_ids"]
 THUMBNAIL = cfg["thumbnail"]
+MAPS_CHANNEL = int(cfg["maps_channel"])
 
 bot = commands.Bot(command_prefix=PREFIX)
 
@@ -50,6 +58,7 @@ db = {
 }
 
 maptypes = ["", "bhop_", "kz_", "kz_bhop_"]
+valve.rcon.RCONMessage.ENCODING = "utf-8"
 
 @bot.event
 async def on_ready():
@@ -63,12 +72,6 @@ with a2s.ServerQuerier((IP, PORT)) as server:
     except a2s.NoResponseError:
         serverOffline = True
         server_name = "Server Offline"
-
-#embed template
-embed = discord.Embed(timestamp=datetime.utcnow())
-embed.set_thumbnail(url=THUMBNAIL)
-embed.set_footer(text=f"{server_name}")     
-
 
 #presence changer
 @tasks.loop(seconds=120.0)
@@ -84,6 +87,9 @@ async def status():
 #@commands.cooldown(1, 5, commands.BucketType.guild)
 async def players(ctx):
 
+    embed = discord.Embed(timestamp=datetime.utcnow())
+    embed.set_thumbnail(url=THUMBNAIL)
+    embed.set_footer(text=f"{server_name}")
     embed.color = 0x1
 
     if not serverOffline:
@@ -121,8 +127,8 @@ async def players(ctx):
                 except IndexError:
                     pass
 
-            embed.add_field(name="Players:", value=finalList)
-            embed.add_field(name="Join Server:", value=f"steam://connect/{IP}:{PORT}")
+            embed.add_field(name="Players:", value=finalList, inline=False)
+            embed.add_field(name="Join Server:", value=f"steam://connect/{IP}:{PORT}", inline=False)
             await ctx.send(embed=embed)
     
     else:
@@ -135,36 +141,51 @@ async def players(ctx):
 #@commands.cooldown(1, 5, commands.BucketType.guild)
 async def rcon(ctx, *args):
     user = ctx.message.author
-    if str(user.id) in ADMIN_IDS:
-        with a2s.ServerQuerier((IP, PORT)) as server:
-            command = valve.rcon.execute((IP, PORT), RCON_PW, " ".join(args[:]))
-            embed = discord.Embed(colour=discord.Colour(0xcc9900), timestamp=datetime.utcnow())
-            embed.set_author(name="RCON")
-            embed.set_thumbnail(url=THUMBNAIL)
-            embed.add_field(name="Response:", value="⬇")
-            embed.set_footer(text="{server_name}".format(**server.info()))
-            await ctx.send(embed=embed)
+    
+    if not serverOffline:
 
-            #send response as txt if over discord 2k chars limit
-            try:
-                if command == "":
-                    await ctx.send("```No response.```")
-                else:
-                    await ctx.send(f"```{command}```")
-            except HTTPException:
-                with open("response.txt", "w") as resp:
-                    resp.write(command)
-                await ctx.send("Response over 2000 characters.", file=discord.File(r"response.txt"))
+        if str(user.id) in ADMIN_IDS:
+            with a2s.ServerQuerier((IP, PORT)) as server:
                 
+                command = valve.rcon.execute((IP, PORT), RCON_PW, " ".join(args[:]))
+                
+                embed = discord.Embed(colour=discord.Colour(0xcc9900), timestamp=datetime.utcnow(), description=f"```{command}```")
+                embed.set_author(name="RCON")
+                embed.set_footer(text=f"{server_name}")
+
+                #send response as txt if over discord 2k chars limit (thanks chris)
+                try:
+                    if command == "":
+                        await ctx.send("```No response.```")
+                    else:
+                        await ctx.send(embed=embed)
+                        
+                except HTTPException:
+                    with open("response.txt", "w") as resp:
+                        resp.write(command)
+                    await ctx.send("Response over 2000 characters.", file=discord.File(r"response.txt"))
+                    
+        else:
+            await ctx.send("UID not in Admin ID whitelist.")
+
     else:
-        await ctx.send("UID not in Admin ID whitelist.")
+        embed = discord.Embed(timestamp=datetime.utcnow())
+        embed.set_author(name="RCON")
+        embed.color = 0xd2222d
+        embed.add_field(name="Server Offline.", value="Server is currently offline.")
+        embed.set_thumbnail(url=THUMBNAIL)
+        embed.set_footer(text=f"{server_name}")
+        await ctx.send(embed=embed)
 
 #mapcycle checker
 @bot.command(aliases=["mapcycle", "mapcheck"], brief="Check if specified map is in the mapcycle", usage="[map]")
 #@commands.cooldown(1, 5, commands.BucketType.guild)
 async def checkmap(ctx, arg):
 
+    embed = discord.Embed(timestamp=datetime.utcnow())
     embed.set_author(name="Mapcycle")
+    embed.set_thumbnail(url=THUMBNAIL)
+    embed.set_footer(text=f"{server_name}")
     
     with open(MAPCYCLE, "r") as mc:
         for line in mc.readlines():
@@ -191,10 +212,14 @@ async def wr(ctx, arg, arg2, arg3):
 #@commands.cooldown(1, 5, commands.BucketType.guild)
 async def downloadmap(ctx, arg):
 
+    embed = discord.Embed(timestamp=datetime.utcnow())
+    embed.set_thumbnail(url=THUMBNAIL)
+    embed.set_footer(text=f"{server_name}")
     embed.colour = 0x35cbdb
 
     mapname = str(arg)
-    
+    mapsChannel = bot.get_channel(MAPS_CHANNEL)
+
     #gamebanana method
     if mapname.startswith("https://gamebanana.com/mods/"):
         embed.set_author(name="Map Downloader - GameBanana")
@@ -215,21 +240,60 @@ async def downloadmap(ctx, arg):
         except AttributeError:
             mapFiles = gbAPIRequest[1].get(modID).get("_aMetadata").get("_aArchiveFileTree")
 
-            embed.description = f"Downloading **{gbName}** from GameBanana, {size(mapfileSize)}..."
-            msg = await ctx.send(embed=embed)
+        embed.description = f"Downloading **{gbName}** from GameBanana, {size(mapfileSize)}..."
+        msg = await ctx.send(embed=embed)
 
-            async with aiohttp.ClientSession() as session:
-                async with session.get(downloadURL) as resp:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(downloadURL) as resp:
 
-                    mapFile = await aiofiles.open(f"{MAPS_FOLDER}/{mapfileName}", mode="wb")
-                    await mapFile.write(await resp.read())
-                    await mapFile.close()
+                mapFile = await aiofiles.open(f"{MAPS_FOLDER}/{mapfileName}", mode="wb")
+                await mapFile.write(await resp.read())
+                await mapFile.close()
 
-                    embed.add_field(name="Contents:", value=mapFiles)        
-                    embed.description = f"Extracting **{mapfileName}**..."
-                    await msg.edit(embed=embed)
+                embed.add_field(name="Contents:", value=mapFiles)        
+                embed.description = f"Extracting **{mapfileName}**..."
+                await msg.edit(embed=embed)
 
-                    patoolib.extract_archive(f"{MAPS_FOLDER}/{mapfileName}", outdir=f"{MAPS_FOLDER}")
+                patoolib.extract_archive(f"{MAPS_FOLDER}/{mapfileName}", outdir=f"{MAPS_FOLDER}", interactive=False)
+                
+                embed.description = f"Compressing contents..."
+                await msg.edit(embed=embed)
+                
+                compressedFiles = []
+
+                #only want bsps, navs are small enough to be downloaded uncompressed
+                for file in mapFiles:
+                    if str(file).endswith('.bsp'):
+                        with bz2.open(f"{MAPS_FOLDER}/{file}.bz2", "wb") as compressedFile:
+                            with open(f"{MAPS_FOLDER}/{file}", "rb") as bsp:
+                                data = bsp.read()
+                                compressedFile.write(data)
+                                compressedFiles.append(f"{file}.bz2")
+                    else:
+                        pass
+
+                embed.description = f"Moving files to FastDL..."
+                embed.remove_field(0)
+                await msg.edit(embed=embed)                        
+
+                for file in compressedFiles:
+                    if FTP_IP:
+                        pass
+
+                    else:
+                        for file in compressedFiles:
+                            #have to specify full path to overwrite existing
+                            shutil.move(f"{MAPS_FOLDER}/{file}", f"{FASTDL_FOLDER}/{file}")
+                
+                embed.description = f"Successfully added **{gbName}**."
+                await msg.edit(embed=embed) 
+
+                if MAPS_CHANNEL:
+                    await mapsChannel.send(f"```Added {gbName}.```\n{mapname}")
+                    
+                else:
+                    pass
+        
 
     #acer/sojourner method
     else:
@@ -254,8 +318,26 @@ async def downloadmap(ctx, arg):
                         embed.description = f"Extracting **{maptype}{sojournerFile}**..."
                         await msg.edit(embed=embed)
 
-                        patoolib.extract_archive(f"{MAPS_FOLDER}/{maptype}{sojournerFile}", outdir=f"{MAPS_FOLDER}")
+                        patoolib.extract_archive(f"{MAPS_FOLDER}/{maptype}{sojournerFile}", outdir=f"{MAPS_FOLDER}", interactive=False)
 
+                        embed.description = f"Moving **{maptype}{sojournerFile}** to FastDL..."
+                        await msg.edit(embed=embed)                        
+
+                        if FTP_IP:
+                            pass
+
+                        else:
+                            #have to specify full path to overwrite existing
+                            shutil.move(f"{MAPS_FOLDER}/{maptype}{sojournerFile}", f"{FASTDL_FOLDER}/{maptype}{sojournerFile}")
+                        
+                        embed.description = f"Successfully added **{maptype}{mapname}**."
+                        await msg.edit(embed=embed) 
+
+                        if MAPS_CHANNEL:
+                            await mapsChannel.send(f"```Added {maptype}{mapname}.```\n{downloadURL}{maptype}{sojournerFile}")
+                            
+                        else:
+                            pass
             else:
                 pass
 
@@ -293,7 +375,7 @@ async def wr_cooldown(ctx, error):
 async def downloadmap_cooldown(ctx, error):
     if isinstance(error, commands.CommandOnCooldown):
         msg = "This command is on cooldown, please try again in {:.2f}s.".format(error.retry_after)
-        await ctx.send(msg)    
+        await ctx.send(msg)        
 """
 
 
