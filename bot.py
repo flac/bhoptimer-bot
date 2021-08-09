@@ -306,9 +306,18 @@ async def downloadmap(ctx, arg):
 
                     else:
                         try:
-                            for file in compressedFiles:
-                                #have to specify full path to overwrite existing
-                                shutil.move(f"{MAPS_FOLDER}/{file}", f"{FASTDL_FOLDER}/{file}")
+                            #have to specify full path to overwrite existing
+                            shutil.move(f"{MAPS_FOLDER}/{file}", f"{FASTDL_FOLDER}/{file}")
+
+                            #cleanup
+                            os.remove(f"{MAPS_FOLDER}/{mapfileName}")
+
+                            #delete folders if zip has one in it
+                            if folderName:
+                                try:
+                                    os.removedirs(f"{MAPS_FOLDER}/{folderName}")
+                                except FileNotFoundError:
+                                    pass
                                 
                         #weird error even though all maps get moved in a mappack        
                         except FileNotFoundError:
