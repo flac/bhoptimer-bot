@@ -323,6 +323,13 @@ async def downloadmap(ctx, arg):
                         except FileNotFoundError:
                             pass
                 
+                #update mapcycle
+                fileList = os.listdir(MAPS_FOLDER)
+                with open(MAPCYCLE, "w") as mapCycleFile:
+                    for file in fileList:
+                        if str(file).endswith(".bsp"):
+                            mapCycleFile.write(file[:-4] + "\n")  
+
                 embed.description = f"Successfully added **{gbName}**."
                 await msg.edit(embed=embed) 
 
@@ -371,7 +378,14 @@ async def downloadmap(ctx, arg):
                         else:
                             #have to specify full path to overwrite existing
                             shutil.move(f"{MAPS_FOLDER}/{maptype}{sojournerFile}", f"{FASTDL_FOLDER}/{maptype}{sojournerFile}")
-                        
+
+                        #update mapcycle
+                        fileList = os.listdir(MAPS_FOLDER)
+                        with open(MAPCYCLE, "w") as mapCycleFile:
+                            for file in fileList:
+                                if str(file).endswith(".bsp"):
+                                    mapCycleFile.write(file[:-4] + "\n")                       
+
                         embed.description = f"Successfully added **{maptype}{mapname}**."
                         await msg.edit(embed=embed) 
 
