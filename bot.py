@@ -1,20 +1,21 @@
+import aiofiles
+import aioftp
+import aiohttp
+import bz2
 import discord
+import json
+import mysql.connector
+import os
+import patoolib
+import re
+import requests
+import shutil
+import valve.rcon
+import valve.source.a2s as a2s
+from datetime import datetime, timedelta
 from discord.errors import HTTPException
 from discord.ext import commands, tasks
-import valve.source.a2s as a2s
-import valve.rcon
-import json
-from datetime import datetime, timedelta
-import re
-import mysql.connector
-import requests
-import aiohttp
-import aiofiles
 from hurry.filesize import size
-import patoolib
-import shutil
-import bz2
-import aioftp
 
 with open("config.json", "r") as config:
     cfg = json.load(config)
@@ -255,9 +256,13 @@ async def downloadmap(ctx, arg):
                 embed.add_field(name="Contents:", value=mapFiles)        
                 embed.description = f"Extracting **{mapfileName}**..."
                 await msg.edit(embed=embed)
-
+            
                 patoolib.extract_archive(f"{MAPS_FOLDER}/{mapfileName}", outdir=f"{MAPS_FOLDER}", interactive=False)
-                
+
+                #move files out of any folders to main maps folder
+                for file in mapFiles:
+                    shutil.move(f"{MAPS_FOLDER}/{folderName}/{file}", f"{MAPS_FOLDER}/{file}")
+
                 embed.description = f"Compressing contents..."
                 await msg.edit(embed=embed)
                 
@@ -266,13 +271,13 @@ async def downloadmap(ctx, arg):
                 #only want bsps, navs are small enough to be downloaded uncompressed
                 for file in mapFiles:
                     if str(file).endswith('.bsp'):
-                        with bz2.open(f"{MAPS_FOLDER}/{folderName}/{file}.bz2", "wb") as compressedFile:
-                            with open(f"{MAPS_FOLDER}/{folderName}/{file}", "rb") as bsp:
+                        with bz2.open(f"{MAPS_FOLDER}/{file}.bz2", "wb") as compressedFile:
+                            with open(f"{MAPS_FOLDER}/{file}", "rb") as bsp:
                                 data = bsp.read()
                                 compressedFile.write(data)
                                 compressedFiles.append(f"{file}.bz2")
                     else:
-                        pass
+                        pass    
 
                 embed.description = f"Moving files to FastDL..."
                 embed.remove_field(0)
@@ -282,13 +287,28 @@ async def downloadmap(ctx, arg):
 
                     if FTP_IP:
                         async with aioftp.Client.context(FTP_IP, user=FTP_USER, password=FTP_PASS) as ftp:
-                            await ftp.upload(f"{MAPS_FOLDER}/{folderName}/{file}", f"{FASTDL_FOLDER}/{file}", write_into=True)
-                            
+                            await ftp.upload(f"{MAPS_FOLDER}/{file}", f"{FASTDL_FOLDER}/{file}", write_into=True)
+
+                        #cleanup
+                        try:
+                            os.remove(f"{MAPS_FOLDER}/{file}")
+                            os.remove(f"{MAPS_FOLDER}/{mapfileName}")
+                        #extracting zips with folders in them deletes the zip
+                        except FileNotFoundError:
+                            pass
+                        
+                        #delete folders if zip has one in it
+                        if folderName:
+                            try:
+                                os.removedirs(f"{MAPS_FOLDER}/{folderName}")
+                            except FileNotFoundError:
+                                pass
+
                     else:
                         try:
                             for file in compressedFiles:
                                 #have to specify full path to overwrite existing
-                                shutil.move(f"{MAPS_FOLDER}/{folderName}/{file}", f"{FASTDL_FOLDER}/{file}")
+                                shutil.move(f"{MAPS_FOLDER}/{file}", f"{FASTDL_FOLDER}/{file}")
                                 
                         #weird error even though all maps get moved in a mappack        
                         except FileNotFoundError:
@@ -336,6 +356,9 @@ async def downloadmap(ctx, arg):
                             async with aioftp.Client.context(FTP_IP, user=FTP_USER, password=FTP_PASS) as ftp:
                                 await ftp.upload(f"{MAPS_FOLDER}/{maptype}{sojournerFile}", f"{FASTDL_FOLDER}/{maptype}{sojournerFile}", write_into=True)
 
+                            #cleanup
+                            os.remove(f"{MAPS_FOLDER}/{maptype}{sojournerFile}")
+                        
                         else:
                             #have to specify full path to overwrite existing
                             shutil.move(f"{MAPS_FOLDER}/{maptype}{sojournerFile}", f"{FASTDL_FOLDER}/{maptype}{sojournerFile}")
