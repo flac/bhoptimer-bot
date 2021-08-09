@@ -14,6 +14,7 @@ from hurry.filesize import size
 import patoolib
 import shutil
 import bz2
+import aioftp
 
 with open("config.json", "r") as config:
     cfg = json.load(config)
@@ -239,6 +240,7 @@ async def downloadmap(ctx, arg):
             mapFiles = gbAPIRequest[1].get(modID).get("_aMetadata").get("_aArchiveFileTree").get(folderName)
         except AttributeError:
             mapFiles = gbAPIRequest[1].get(modID).get("_aMetadata").get("_aArchiveFileTree")
+            folderName = ""
 
         embed.description = f"Downloading **{gbName}** from GameBanana, {size(mapfileSize)}..."
         msg = await ctx.send(embed=embed)
@@ -264,8 +266,8 @@ async def downloadmap(ctx, arg):
                 #only want bsps, navs are small enough to be downloaded uncompressed
                 for file in mapFiles:
                     if str(file).endswith('.bsp'):
-                        with bz2.open(f"{MAPS_FOLDER}/{file}.bz2", "wb") as compressedFile:
-                            with open(f"{MAPS_FOLDER}/{file}", "rb") as bsp:
+                        with bz2.open(f"{MAPS_FOLDER}/{folderName}/{file}.bz2", "wb") as compressedFile:
+                            with open(f"{MAPS_FOLDER}/{folderName}/{file}", "rb") as bsp:
                                 data = bsp.read()
                                 compressedFile.write(data)
                                 compressedFiles.append(f"{file}.bz2")
@@ -277,14 +279,16 @@ async def downloadmap(ctx, arg):
                 await msg.edit(embed=embed)                        
 
                 for file in compressedFiles:
-                    if FTP_IP:
-                        pass
 
+                    if FTP_IP:
+                        async with aioftp.Client.context(FTP_IP, user=FTP_USER, password=FTP_PASS) as ftp:
+                            await ftp.upload(f"{MAPS_FOLDER}/{folderName}/{file}", f"{FASTDL_FOLDER}/{file}", write_into=True)
+                            
                     else:
                         try:
                             for file in compressedFiles:
                                 #have to specify full path to overwrite existing
-                                shutil.move(f"{MAPS_FOLDER}/{file}", f"{FASTDL_FOLDER}/{file}")
+                                shutil.move(f"{MAPS_FOLDER}/{folderName}/{file}", f"{FASTDL_FOLDER}/{file}")
                                 
                         #weird error even though all maps get moved in a mappack        
                         except FileNotFoundError:
@@ -307,8 +311,8 @@ async def downloadmap(ctx, arg):
 
         #check for bhop_ / kz_ / kz_bhop_
         for maptype in maptypes:
-            if requests.head(f"{downloadURL}{maptype}{sojournerFile}").status_code == 200:
 
+            if requests.head(f"{downloadURL}{maptype}{sojournerFile}").status_code == 200:
                 embed.set_author(name="Map Downloader - Sojourner")
                 embed.description = f"Downloading **{maptype}{sojournerFile}** from Sojourner.me..."
                 msg = await ctx.send(embed=embed)
@@ -329,7 +333,8 @@ async def downloadmap(ctx, arg):
                         await msg.edit(embed=embed)                        
 
                         if FTP_IP:
-                            pass
+                            async with aioftp.Client.context(FTP_IP, user=FTP_USER, password=FTP_PASS) as ftp:
+                                await ftp.upload(f"{MAPS_FOLDER}/{maptype}{sojournerFile}", f"{FASTDL_FOLDER}/{maptype}{sojournerFile}", write_into=True)
 
                         else:
                             #have to specify full path to overwrite existing
