@@ -108,8 +108,8 @@ async def players(ctx):
                 try:
                     name = re.findall(r'"([^"]*)"', player)[0]
 
-                    #really dumb way to separate bot from player but works i guess
-                    if "BOT                                     active" in player:
+                    #fixed the dumb method of finding bots thanks lorp
+                    if re.search(r"BOT\s+active$", player):
                         bot = True
                     else:
                         id = re.findall(r"\[.*?]", player)[0]
