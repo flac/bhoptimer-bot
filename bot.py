@@ -395,10 +395,11 @@ async def downloadmap(ctx, arg):
                         else:
                             pass
             else:
-                pass
-
-
-
+                embed.set_author(name="Map Downloader - Sojourner")
+                embed.description = f"Unable to find map on Sojourner.me."
+                embed.color = 0xd2222d
+                msg = await ctx.send(embed=embed)
+                break
 
 
 #cooldowns, remove the """s and the #s from the lines with @commands.cooldown to enable
