@@ -391,9 +391,10 @@ async def downloadmap(ctx, arg):
 
                         if MAPS_CHANNEL:
                             await mapsChannel.send(f"```Added {maptype}{mapname}.```\n{downloadURL}{maptype}{sojournerFile}")
+                            break
                             
                         else:
-                            pass
+                            break
             else:
                 embed.set_author(name="Map Downloader - Sojourner")
                 embed.description = f"Unable to find map on Sojourner.me."
