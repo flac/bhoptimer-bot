@@ -344,6 +344,7 @@ async def downloadmap(ctx, arg):
     else:
         downloadURL = "http://sojourner.me/fastdl/maps/"
         sojournerFile = mapname + ".bsp.bz2"
+        mapNotFound = 0
 
         #check for bhop_ / kz_ / kz_bhop_
         for maptype in maptypes:
@@ -396,11 +397,12 @@ async def downloadmap(ctx, arg):
                         else:
                             break
             else:
-                embed.set_author(name="Map Downloader - Sojourner")
-                embed.description = f"Unable to find map on Sojourner.me."
-                embed.color = 0xd2222d
-                msg = await ctx.send(embed=embed)
-                break
+                mapNotFound = mapNotFound + 1
+                if mapNotFound == 4:
+                    embed.set_author(name="Map Downloader - Sojourner")
+                    embed.description = f"Unable to find map on Sojourner.me."
+                    embed.color = 0xd2222d
+                    msg = await ctx.send(embed=embed)
 
 
 #cooldowns, remove the """s and the #s from the lines with @commands.cooldown to enable
