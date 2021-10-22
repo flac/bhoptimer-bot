@@ -129,7 +129,10 @@ async def players(ctx):
                 except IndexError:
                     pass
 
-            embed.add_field(name="Players:", value=finalList, inline=False)
+            if finalList == "":
+                embed.add_field(name="Players:", value="There are no active players on the server.", inline=False)
+            else:
+                embed.add_field(name="Players:", value=finalList, inline=False)
             embed.add_field(name="Join Server:", value=f"steam://connect/{IP}:{PORT}", inline=False)
             await ctx.send(embed=embed)
     
