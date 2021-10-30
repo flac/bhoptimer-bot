@@ -59,6 +59,10 @@ db = {
   "database": DB_DB
 }
 
+headers = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/74.0.3729.169 Safari/537.36"
+}
+
 maptypes = ["", "bhop_", "kz_", "kz_bhop_"]
 valve.rcon.RCONMessage.ENCODING = "utf-8"
 
@@ -352,7 +356,7 @@ async def downloadmap(ctx, arg):
         #check for bhop_ / kz_ / kz_bhop_
         for maptype in maptypes:
 
-            if requests.head(f"{downloadURL}{maptype}{sojournerFile}").status_code == 200:
+            if requests.head(f"{downloadURL}{maptype}{sojournerFile}", headers=headers).status_code == 200:
                 embed.set_author(name="Map Downloader - Sojourner")
                 embed.description = f"Downloading **{maptype}{sojournerFile}** from Sojourner.me..."
                 msg = await ctx.send(embed=embed)
@@ -400,7 +404,7 @@ async def downloadmap(ctx, arg):
                         else:
                             break
             else:
-                mapNotFound = mapNotFound + 1
+                mapNotFound += 1
                 if mapNotFound == 4:
                     embed.set_author(name="Map Downloader - Sojourner")
                     embed.description = f"Unable to find map on Sojourner.me."
