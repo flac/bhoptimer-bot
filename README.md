@@ -75,7 +75,7 @@ Works with Python 3.7+:
 ### downloadmap (aliases: dl/dm/dlmap/mapdl)
  - Allows the user to download maps onto the server, and uploads them to FastDL automatically.
  - Prefixless!
- - Supports Sojourner.me.
+ - Supports Sojourner.me (CASE SENSITIVE).
  
  ![image](https://user-images.githubusercontent.com/53440695/147365236-b2448165-0aaa-4caf-a2f1-625cec13608d.png)
 
