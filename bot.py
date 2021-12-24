@@ -4,7 +4,6 @@ import aiohttp
 import bz2
 import discord
 import json
-import mysql.connector
 import os
 import patoolib
 import re
@@ -22,7 +21,6 @@ with open("config.json", "r") as config:
 
 #bot related
 TOKEN = cfg["token"]
-API_KEY = cfg["sj_api_key"]
 PREFIX = cfg["prefix"]
 
 #server related
@@ -30,7 +28,6 @@ IP = cfg["server_ip"]
 PORT = int(cfg["server_port"])
 RCON_PW = cfg["rcon_password"]
 MAPCYCLE = cfg["mapcycle"]
-STYLES_CFG = cfg["styles_config"]
 MAPS_FOLDER = cfg["maps_folder"]
 
 #fastdl related
@@ -39,25 +36,12 @@ FTP_USER = cfg["ftp_user"]
 FTP_PASS = cfg["ftp_pass"]
 FASTDL_FOLDER = cfg["fastdl_folder"]
 
-#database related
-DB_IP = cfg["db_ip"]
-DB_USER = cfg["db_user"]
-DB_PASS = cfg["db_pass"]
-DB_DB = cfg["db_database"]
-
 #discord related
 ADMIN_IDS = cfg["admin_ids"]
 THUMBNAIL = cfg["thumbnail"]
 MAPS_CHANNEL = int(cfg["maps_channel"])
 
 bot = commands.Bot(command_prefix=PREFIX)
-
-db = {
-  "user": DB_USER,
-  "password": DB_PASS,
-  "host": DB_IP,
-  "database": DB_DB
-}
 
 headers = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/74.0.3729.169 Safari/537.36"
@@ -207,14 +191,6 @@ async def checkmap(ctx, arg):
         embed.color = 0xd2222d
         embed.description = f"``{arg}`` was **not** found in the mapcycle."
         return await ctx.send(embed=embed)
-
-#wr checker, arg = map, arg2 = style, arg3 = track
-@bot.command(aliases=["record", "mtop", "maptop", "maprecord"], brief="Gets the map record for a given map, style and track. Compares against SourceJump's best time if applicable.", usage="[map] <style> <(m)/b>")
-#@commands.cooldown(1, 5, commands.BucketType.guild)
-async def wr(ctx, arg, arg2, arg3):
-    with a2s.ServerQuerier((IP, PORT)) as server:
-        conn = mysql.connector.connect(**db)
-        cursor = conn.cursor()
 
 #download map function
 @bot.command(aliases=["dl", "dm", "dlmap" "mapdl"], brief="Download a map using a GameBanana link, or map name.")
@@ -428,12 +404,6 @@ async def rcon_cooldown(ctx, error):
 
 @checkmap.error
 async def checkmap_cooldown(ctx, error):
-    if isinstance(error, commands.CommandOnCooldown):
-        msg = "This command is on cooldown, please try again in {:.2f}s.".format(error.retry_after)
-        await ctx.send(msg)
-
-@wr.error
-async def wr_cooldown(ctx, error):
     if isinstance(error, commands.CommandOnCooldown):
         msg = "This command is on cooldown, please try again in {:.2f}s.".format(error.retry_after)
         await ctx.send(msg)
