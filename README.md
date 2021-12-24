@@ -1,6 +1,9 @@
 # bhoptimer-bot
 
 A [discord.py](https://github.com/Rapptz/discord.py) bot for [shavit's bhoptimer](https://github.com/shavitush/bhoptimer/).
+
+[Support Server](discord.gg/Sdc7tvD), PR's and issues are also welcome.
+
 Includes:
 
  - Updating status message including playercount and current map (attempts to detect if server is offline).
