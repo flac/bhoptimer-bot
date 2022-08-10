@@ -60,9 +60,9 @@ async def on_ready():
 with a2s.ServerQuerier((IP, PORT)) as server:
     try:
         server_name = "{server_name}".format(**server.info())
-        serverOffline = False
+        server_offline = False
     except a2s.NoResponseError:
-        serverOffline = True
+        server_offline = True
         server_name = "Server Offline"
 
 
@@ -70,7 +70,7 @@ with a2s.ServerQuerier((IP, PORT)) as server:
 @tasks.loop(seconds=120.0)
 async def status():
     with a2s.ServerQuerier((IP, PORT)) as server:
-        if serverOffline:
+        if server_offline:
             await bot.change_presence(activity=discord.Game("Server Offline."))
         else:
             await bot.change_presence(activity=discord.Game("{map} ({player_count}/{max_players})".format(**server.info())))
@@ -85,17 +85,17 @@ async def players(ctx):
     embed.set_footer(text=f"{server_name}")
     embed.color = 0x1
 
-    if not serverOffline:
+    if not server_offline:
 
         with a2s.ServerQuerier((IP, PORT)) as server:
 
             embed.set_author(name="{map} - {player_count}/{max_players} players online".format(**server.info()))
 
             status = valve.rcon.execute((IP, PORT), RCON_PW, "status")
-            rconPlayers = status.split("\n", 9)[9].split("\n")
-            finalList = ""
+            rcon_players = status.split("\n", 9)[9].split("\n")
+            final_list = ""
 
-            for player in rconPlayers:
+            for player in rcon_players:
                 try:
                     name = re.findall(r'"([^"]*)"', player)[0]
 
@@ -107,24 +107,24 @@ async def players(ctx):
                         bot = False
 
                     # prevent bot from having profile url
-                    valvePlayers = server.players()
-                    for valvePlayer in valvePlayers["players"]:
+                    valve_players = server.players()
+                    for valve_player in valve_players["players"]:
                         if bot:
-                            finalList += f"{name} - " + str(
-                                timedelta(seconds=int(("{duration:.0f}").format(**valvePlayer), base=10))) + "\n"
+                            final_list += f"{name} - " + str(
+                                timedelta(seconds=int("{duration:.0f}".format(**valve_player), base=10))) + "\n"
                             break
                         else:
-                            if name == valvePlayer["name"]:
-                                finalList += f"[ {name} ](https://steamcommunity.com/profiles/{id}) - " + str(timedelta(seconds=int(("{duration:.0f}").format(**valvePlayer), base=10))) + "\n"
+                            if name == valve_player["name"]:
+                                final_list += f"[ {name} ](https://steamcommunity.com/profiles/{id}) - " + str(timedelta(seconds=int("{duration:.0f}".format(**valve_player), base=10))) + "\n"
                                 break
 
                 except IndexError:
                     pass
 
-            if finalList == "":
+            if final_list == "":
                 embed.add_field(name="Players:", value="There are no active players on the server.", inline=False)
             else:
-                embed.add_field(name="Players:", value=finalList, inline=False)
+                embed.add_field(name="Players:", value=final_list, inline=False)
             embed.add_field(name="Join Server:", value=f"steam://connect/{IP}:{PORT}", inline=False)
             await ctx.send(embed=embed)
 
@@ -140,7 +140,7 @@ async def players(ctx):
 async def rcon(ctx, *args):
     user = ctx.message.author
 
-    if not serverOffline:
+    if not server_offline:
 
         if str(user.id) in ADMIN_IDS:
             with a2s.ServerQuerier((IP, PORT)) as server:
@@ -208,65 +208,65 @@ async def downloadmap(ctx, arg):
     embed.colour = 0x35cbdb
 
     mapname = str(arg)
-    mapsChannel = bot.get_channel(MAPS_CHANNEL)
+    maps_channel = bot.get_channel(MAPS_CHANNEL)
 
     # gamebanana method
     if mapname.startswith("https://gamebanana.com/mods/"):
         embed.set_author(name="Map Downloader - GameBanana")
-        itemID = mapname.split("/")[4]
+        item_id = mapname.split("/")[4]
 
         # gb api stuff
-        gbAPIRequest = requests.get(f"https://api.gamebanana.com/Core/Item/Data?itemtype=Mod&itemid={itemID}&fields=name,Files().aFiles()").json()
+        gb_api_req = requests.get(f"https://api.gamebanana.com/Core/Item/Data?itemtype=Mod&itemid={item_id}&fields=name,Files().aFiles()").json()
 
-        gbName = gbAPIRequest[0]
-        modID = list(gbAPIRequest[1])[0]
-        mapfileName = gbAPIRequest[1].get(modID).get("_sFile")
-        mapfileSize = gbAPIRequest[1].get(modID).get("_nFilesize")
-        downloadURL = gbAPIRequest[1].get(modID).get("_sDownloadUrl")
+        gb_name = gb_api_req[0]
+        mod_id = list(gb_api_req[1])[0]
+        mapfile_name = gb_api_req[1].get(mod_id).get("_sFile")
+        mapfile_size = gb_api_req[1].get(mod_id).get("_nFilesize")
+        download_url = gb_api_req[1].get(mod_id).get("_sDownloadUrl")
 
-        gbAPIRequestFileList = requests.get(f"https://gamebanana.com/apiv9/File/{modID}").json()
-        folderName = list(gbAPIRequestFileList.get("_aMetadata").get("_aArchiveFileTree"))[0]
+        gb_filelist_req = requests.get(f"https://gamebanana.com/apiv9/File/{mod_id}").json()
+        folder_name = list(gb_filelist_req.get("_aMetadata").get("_aArchiveFileTree"))[0]
 
         # attempt to get files within folder if applicable
         try:
-            mapFiles = gbAPIRequestFileList.get("_aMetadata").get("_aArchiveFileTree").get(folderName)
+            map_files = gb_filelist_req.get("_aMetadata").get("_aArchiveFileTree").get(folder_name)
         except AttributeError:
-            mapFiles = gbAPIRequestFileList.get("_aMetadata").get("_aArchiveFileTree")
-            folderName = ""
+            map_files = gb_filelist_req.get("_aMetadata").get("_aArchiveFileTree")
+            folder_name = ""
 
-        embed.description = f"Downloading **{gbName}** from GameBanana, {size(mapfileSize)}..."
+        embed.description = f"Downloading **{gb_name}** from GameBanana, {size(mapfile_size)}..."
         msg = await ctx.send(embed=embed)
 
         async with aiohttp.ClientSession() as session:
-            async with session.get(downloadURL) as resp:
+            async with session.get(download_url) as resp:
 
-                mapFile = await aiofiles.open(f"{MAPS_FOLDER}/{mapfileName}", mode="wb")
-                await mapFile.write(await resp.read())
-                await mapFile.close()
+                map_file = await aiofiles.open(f"{MAPS_FOLDER}/{mapfile_name}", mode="wb")
+                await map_file.write(await resp.read())
+                await map_file.close()
 
-                embed.add_field(name="Contents:", value=mapFiles)
-                embed.description = f"Extracting **{mapfileName}**..."
+                embed.add_field(name="Contents:", value=map_files)
+                embed.description = f"Extracting **{mapfile_name}**..."
                 await msg.edit(embed=embed)
 
-                patoolib.extract_archive(f"{MAPS_FOLDER}/{mapfileName}", outdir=f"{MAPS_FOLDER}", interactive=False)
+                patoolib.extract_archive(f"{MAPS_FOLDER}/{mapfile_name}", outdir=f"{MAPS_FOLDER}", interactive=False)
 
                 # move files out of any folders to main maps folder
-                for file in mapFiles:
-                    shutil.move(f"{MAPS_FOLDER}/{folderName}/{file}", f"{MAPS_FOLDER}/{file}")
+                for file in map_files:
+                    shutil.move(f"{MAPS_FOLDER}/{folder_name}/{file}", f"{MAPS_FOLDER}/{file}")
 
                 embed.description = f"Compressing contents..."
                 await msg.edit(embed=embed)
 
-                compressedFiles = []
+                compressed_files = []
 
                 # only want bsps, navs are small enough to be downloaded uncompressed
-                for file in mapFiles:
+                for file in map_files:
                     if str(file).endswith('.bsp'):
-                        with bz2.open(f"{MAPS_FOLDER}/{file}.bz2", "wb") as compressedFile:
+                        with bz2.open(f"{MAPS_FOLDER}/{file}.bz2", "wb") as compressed_file:
                             with open(f"{MAPS_FOLDER}/{file}", "rb") as bsp:
                                 data = bsp.read()
-                                compressedFile.write(data)
-                                compressedFiles.append(f"{file}.bz2")
+                                compressed_file.write(data)
+                                compressed_files.append(f"{file}.bz2")
                     else:
                         pass
 
@@ -274,7 +274,7 @@ async def downloadmap(ctx, arg):
                 embed.remove_field(0)
                 await msg.edit(embed=embed)
 
-                for file in compressedFiles:
+                for file in compressed_files:
 
                     if FTP_IP:
                         async with aioftp.Client.context(FTP_IP, user=FTP_USER, password=FTP_PASS) as ftp:
@@ -283,15 +283,15 @@ async def downloadmap(ctx, arg):
                         # cleanup
                         try:
                             os.remove(f"{MAPS_FOLDER}/{file}")
-                            os.remove(f"{MAPS_FOLDER}/{mapfileName}")
+                            os.remove(f"{MAPS_FOLDER}/{mapfile_name}")
                         # extracting zips with folders in them deletes the zip
                         except FileNotFoundError:
                             pass
 
                         # delete folders if zip has one in it
-                        if folderName:
+                        if folder_name:
                             try:
-                                os.removedirs(f"{MAPS_FOLDER}/{folderName}")
+                                os.removedirs(f"{MAPS_FOLDER}/{folder_name}")
                             except FileNotFoundError:
                                 pass
 
@@ -301,12 +301,12 @@ async def downloadmap(ctx, arg):
                             shutil.move(f"{MAPS_FOLDER}/{file}", f"{FASTDL_FOLDER}/{file}")
 
                             # cleanup
-                            os.remove(f"{MAPS_FOLDER}/{mapfileName}")
+                            os.remove(f"{MAPS_FOLDER}/{mapfile_name}")
 
                             # delete folders if zip has one in it
-                            if folderName:
+                            if folder_name:
                                 try:
-                                    os.removedirs(f"{MAPS_FOLDER}/{folderName}")
+                                    os.removedirs(f"{MAPS_FOLDER}/{folder_name}")
                                 except FileNotFoundError:
                                     pass
 
@@ -315,82 +315,81 @@ async def downloadmap(ctx, arg):
                             pass
 
                 # update mapcycle
-                fileList = os.listdir(MAPS_FOLDER)
-                with open(MAPCYCLE, "w") as mapCycleFile:
-                    for file in fileList:
+                file_list = os.listdir(MAPS_FOLDER)
+                with open(MAPCYCLE, "w") as mapcycle_file:
+                    for file in file_list:
                         if str(file).endswith(".bsp"):
-                            mapCycleFile.write(file[:-4] + "\n")
+                            mapcycle_file.write(file[:-4] + "\n")
 
-                embed.description = f"Successfully added **{gbName}**."
+                embed.description = f"Successfully added **{gb_name}**."
                 await msg.edit(embed=embed)
 
                 if MAPS_CHANNEL:
-                    await mapsChannel.send(f"```Added {gbName}.```\n{mapname}")
+                    await maps_channel.send(f"```Added {gb_name}.```\n{mapname}")
 
                 else:
                     pass
 
-
     # acer/sojourner method
     else:
-        downloadURL = "http://sojourner.me/fastdl/maps/"
-        sojournerFile = mapname + ".bsp.bz2"
-        mapNotFound = 0
+        download_url = "http://sojourner.me/fastdl/maps/"
+        sojourner_file = mapname + ".bsp.bz2"
+        map_not_found = 0
 
         # check for bhop_ / kz_ / kz_bhop_
         for maptype in maptypes:
 
-            if requests.head(f"{downloadURL}{maptype}{sojournerFile}", headers=headers).status_code == 200:
+            if requests.head(f"{download_url}{maptype}{sojourner_file}", headers=headers).status_code == 200:
                 embed.set_author(name="Map Downloader - Sojourner")
-                embed.description = f"Downloading **{maptype}{sojournerFile}** from Sojourner.me..."
+                embed.description = f"Downloading **{maptype}{sojourner_file}** from Sojourner.me..."
                 msg = await ctx.send(embed=embed)
 
                 async with aiohttp.ClientSession() as session:
-                    async with session.get(f"{downloadURL}{maptype}{sojournerFile}") as resp:
+                    async with session.get(f"{download_url}{maptype}{sojourner_file}") as resp:
 
-                        mapFile = await aiofiles.open(f"{MAPS_FOLDER}/{maptype}{sojournerFile}", mode="wb")
-                        await mapFile.write(await resp.read())
-                        await mapFile.close()
+                        map_file = await aiofiles.open(f"{MAPS_FOLDER}/{maptype}{sojourner_file}", mode="wb")
+                        await map_file.write(await resp.read())
+                        await map_file.close()
 
-                        embed.description = f"Extracting **{maptype}{sojournerFile}**..."
+                        embed.description = f"Extracting **{maptype}{sojourner_file}**..."
                         await msg.edit(embed=embed)
 
-                        patoolib.extract_archive(f"{MAPS_FOLDER}/{maptype}{sojournerFile}", outdir=f"{MAPS_FOLDER}", interactive=False)
+                        patoolib.extract_archive(f"{MAPS_FOLDER}/{maptype}{sojourner_file}", outdir=f"{MAPS_FOLDER}", interactive=False)
 
-                        embed.description = f"Moving **{maptype}{sojournerFile}** to FastDL..."
+                        embed.description = f"Moving **{maptype}{sojourner_file}** to FastDL..."
                         await msg.edit(embed=embed)
 
                         if FTP_IP:
                             async with aioftp.Client.context(FTP_IP, user=FTP_USER, password=FTP_PASS) as ftp:
-                                await ftp.upload(f"{MAPS_FOLDER}/{maptype}{sojournerFile}", f"{FASTDL_FOLDER}/{maptype}{sojournerFile}", write_into=True)
+                                await ftp.upload(f"{MAPS_FOLDER}/{maptype}{sojourner_file}", f"{FASTDL_FOLDER}/{maptype}{sojourner_file}", write_into=True)
 
                             # cleanup
-                            os.remove(f"{MAPS_FOLDER}/{maptype}{sojournerFile}")
+                            os.remove(f"{MAPS_FOLDER}/{maptype}{sojourner_file}")
 
                         else:
                             # have to specify full path to overwrite existing
-                            shutil.move(f"{MAPS_FOLDER}/{maptype}{sojournerFile}", f"{FASTDL_FOLDER}/{maptype}{sojournerFile}")
+                            shutil.move(f"{MAPS_FOLDER}/{maptype}{sojourner_file}", f"{FASTDL_FOLDER}/{maptype}{sojourner_file}")
 
                         # update mapcycle
-                        fileList = os.listdir(MAPS_FOLDER)
-                        with open(MAPCYCLE, "w") as mapCycleFile:
-                            for file in fileList:
+                        file_list = os.listdir(MAPS_FOLDER)
+                        with open(MAPCYCLE, "w") as mapcycle_file:
+                            for file in file_list:
                                 if str(file).endswith(".bsp"):
-                                    mapCycleFile.write(file[:-4] + "\n")
+                                    mapcycle_file.write(file[:-4] + "\n")
 
                         embed.description = f"Successfully added **{maptype}{mapname}**."
                         await msg.edit(embed=embed)
 
                         if MAPS_CHANNEL:
-                            await mapsChannel.send(
-                                f"```Added {maptype}{mapname}.```\n{downloadURL}{maptype}{sojournerFile}")
+                            await maps_channel.send(
+                                f"```Added {maptype}{mapname}.```\n{download_url}{maptype}{sojourner_file}")
                             break
 
                         else:
                             break
             else:
-                mapNotFound += 1
-                if mapNotFound == 4:
+                map_not_found += 1
+                if map_not_found == 4:
                     embed.set_author(name="Map Downloader - Sojourner")
                     embed.description = f"Unable to find map on Sojourner.me."
                     embed.color = 0xd2222d
