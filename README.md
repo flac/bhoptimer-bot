@@ -39,4 +39,4 @@ Developed on Python 3.10.4:
  ![image](https://github.com/flac/bhoptimer-bot/assets/53440695/79051afb-acba-487c-bc57-b82bc9b380da)
 
 ## Credits
- - [Jeft](https://github.com/Jeftaei) and [lorp](https://github.com/ouwou) - Hopping on Visual Studio Code Multiplayer with me.
+ - [Jeft](https://github.com/Jeftaei) and [mark](https://github.com/ouwou) - Hopping on Visual Studio Code Multiplayer with me.
